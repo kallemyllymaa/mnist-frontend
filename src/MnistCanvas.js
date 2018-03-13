@@ -1,5 +1,7 @@
 import React, { Component } from 'react';
 
+import axios from 'axios';
+
 class MnistCanvas extends Component {
   constructor(props) {
     super(props);
@@ -32,7 +34,14 @@ class MnistCanvas extends Component {
   draw(x, y) {
     const ctx = this.canvasElement.getContext('2d');
     ctx.beginPath();
-    ctx.arc(x - 10, y - 10, 20, 0, 2 * Math.PI, false);
+    ctx.arc(x, y, 18, 0, 2 * Math.PI, false);
+
+    /*const grd = ctx.createRadialGradient(x, y, 6, x, y, 12);
+    grd.addColorStop(0, "#060606");
+    grd.addColorStop(0.9, "#222222");
+    grd.addColorStop(1, "#414141");
+
+    ctx.fillStyle = grd;*/
     ctx.fill();
   }
 
@@ -40,7 +49,8 @@ class MnistCanvas extends Component {
     const ctx = this.canvasElement.getContext('2d');
     ctx.fillStyle = '#FFFFFF';
     ctx.fillRect(0, 0, 640, 480);
-    ctx.fillStyle = '#000000';
+
+    ctx.fillStyle = '#060606';
   }
 
   setMouseDown(down) {
@@ -49,15 +59,38 @@ class MnistCanvas extends Component {
     })
   }
 
+  roundToThree(num) {
+    return +(Math.round(num + "e+3") + "e-3");
+  }
+
   scaleImage() {
     console.log('scaling...')
     const ctx = this.canvasElement.getContext('2d');
     const temp = this.cloneCanvas(this.canvasElement);
     this.paintItWhite();
     ctx.drawImage(temp, 0, 0, 28, 28);
+    const imageData = ctx.getImageData(0, 0, 28, 28);
     const newTemp = this.cloneCanvas(this.canvasElement);
     this.paintItWhite();
     ctx.drawImage(newTemp, 0, 0, 28, 28, 0, 0, 480, 480);
+    let aPix = imageData.data;
+    const nPixLen = aPix.length;
+    let naks = [];
+    for (let nPixel = 0; nPixel < nPixLen; nPixel += 4) {
+      naks.push((aPix[nPixel] + aPix[nPixel + 1] + aPix[nPixel + 2]) / 3);
+    }
+    axios({
+      method: 'post',
+      url: 'http://localhost:5000/predict',
+      responseType: 'json',
+      headers: { 'Content-Type': 'application/json' },
+      data: JSON.stringify({
+        data: naks.map((pix) => pix / 255).map((val) => 1 - val).map(this.roundToThree)
+      })
+    }).then(function (response) {
+      const plop = response.data.predictions[0];
+      console.log(plop.indexOf(Math.max(...plop)))
+    });
   }
 
   cloneCanvas(oldCanvas) {
